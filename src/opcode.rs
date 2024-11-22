@@ -29,7 +29,10 @@ pub enum Opcode {
     OP_NOT,
     OP_LDI,
     OP_STI,
-    OP_JMP,
+    OP_JMP {
+        base: u16,
+    },
+    OP_RET,
     OP_RES,
     OP_LEA,
     OP_TRAP,
@@ -47,7 +50,7 @@ impl Opcode {
                 let mode = (instruction >> 5) & 0x1;
                 let sr2 = match mode {
                     0 => instruction & 0x3,
-                    1 => instruction & 0x1F,
+                    1 => sign_extend(instruction & 0x1F, 4),
                     _ => todo!(),
                 };
 
@@ -59,7 +62,7 @@ impl Opcode {
                 let mode = (instruction >> 5) & 0x1;
                 let sr2 = match mode {
                     0 => instruction & 0x3,
-                    1 => instruction & 0x1F,
+                    1 => sign_extend(instruction & 0x1F, 4),
                     _ => todo!(),
                 };
 
@@ -69,11 +72,17 @@ impl Opcode {
                 let n = ((instruction >> 11) & 0x1) != 0;
                 let z = ((instruction >> 10) & 0x1) != 0;
                 let p = ((instruction >> 9) & 0x1) != 0;
-                let offset = instruction & 0xFF;
+                let offset = sign_extend(instruction & 0x1FF, 9); // PCoffset9 con extensión de signo
 
                 Opcode::OP_BR { n, z, p, offset }
             }
-            0b1100 => todo!("JMP"),
+            0b1100 => {
+                let base = (instruction >> 6) & 0x7;
+                match base {
+                    0b111 => Opcode::OP_RET,
+                    _ => Opcode::OP_JMP { base },
+                }
+            }
             0b0100 => todo!("JSR"),
             0b0010 => todo!("LD"),
             0b1010 => todo!("LDI"),
