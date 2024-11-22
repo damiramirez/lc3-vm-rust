@@ -21,7 +21,7 @@ fn main() {
 
     let mut cpu = CPU::new();
     let mut memory = Memory::new();
-    let _ = memory.load_memory(&bytes);
+    let _ = memory.load_program(&bytes);
 
     for (i, value) in memory.cells.iter().enumerate() {
         if *value != 0 {
