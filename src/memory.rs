@@ -30,7 +30,7 @@ impl Memory {
         self.cells.get(address).copied()
     }
 
-    pub fn load_memory(&mut self, data: &[u16]) -> Result<(), MemoryError> {
+    pub fn load_program(&mut self, data: &[u16]) -> Result<(), MemoryError> {
         let origin: usize = match data.first() {
             Some(&value) => value.into(),
             None => return Err(MemoryError::EmptyOrigin),
