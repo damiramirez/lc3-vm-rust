@@ -31,7 +31,8 @@ impl CPU {
         let instruction = memory.read(self.pc.into())?;
         self.pc = self.pc.checked_add(1)?;
 
-        Opcode::from(instruction);
+        let op = Opcode::from(instruction);
+        println!("{:#?}", op);
 
         Some(instruction)
     }
