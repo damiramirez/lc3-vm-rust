@@ -6,7 +6,14 @@ Basic implementation of the [LC3](https://www.jmeiners.com/lc3-vm/) virtual mach
 
 ## Usage
 
+### Clone the repository
+
 ```shell
   git clone git@github.com:damiramirez/lc3-vm-rust.git && cd lc3-vm-rust
-  make run
+```
+
+### Run with the example program
+
+```shell
+  make run filename=./examples/2048.obj
 ```
