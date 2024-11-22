@@ -16,7 +16,9 @@ pub enum Opcode {
     },
     OP_LD,
     OP_ST,
-    OP_JSR,
+    OP_JSR {
+        offset: u16,
+    },
     OP_AND {
         dr: u16,
         sr1: u16,
@@ -83,7 +85,10 @@ impl Opcode {
                     _ => Opcode::OP_JMP { base },
                 }
             }
-            0b0100 => todo!("JSR"),
+            0b0100 => {
+                let offset = sign_extend(instruction & 0x3FF, 10);
+                Opcode::OP_JSR { offset }
+            }
             0b0010 => todo!("LD"),
             0b1010 => todo!("LDI"),
             0b0110 => todo!("LDR"),
