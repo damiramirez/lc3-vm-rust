@@ -35,8 +35,8 @@ fn load_obj(filename: &str) -> Result<Vec<u16>, String> {
     let data = fs::read(filename).map_err(|e| format!("Problem reading the file: {}", e))?;
     let mut loaded_memory = Vec::new();
     for two_bytes in data.chunks_exact(2) {
-        let first_byte = two_bytes.first().ok_or("Errors with the file")?;
-        let second_byte = two_bytes.get(1).ok_or("Error with the file")?;
+        let first_byte = two_bytes.first().ok_or("Error obtaining the first byte")?;
+        let second_byte = two_bytes.get(1).ok_or("Error obtaining the second byte")?;
         let joined_bytes = u16::from_be_bytes([*first_byte, *second_byte]);
         loaded_memory.push(joined_bytes);
     }
