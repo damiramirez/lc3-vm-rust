@@ -81,13 +81,23 @@ pub enum Opcode {
         offset: i16,
     },
     OP_TRAP {
-        trapvec: u16,
+        trapvec: Trap,
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum OpcodeError {
     InvalidOpcode,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Trap {
+    GetC,
+    Out,
+    Puts,
+    In,
+    Putsp,
+    Halt,
 }
 
 impl Opcode {
@@ -207,8 +217,24 @@ impl Opcode {
                 Ok(Opcode::OP_STR { sr, base_r, offset })
             }
             0b1111 => {
-                let trapvec = instruction & 0b000_0000_1111_1111;
-                Ok(Opcode::OP_TRAP { trapvec })
+                let value = instruction & 0b000_0000_1111_1111;
+                match value {
+                    0x20 => Ok(Opcode::OP_TRAP {
+                        trapvec: Trap::GetC,
+                    }),
+                    0x21 => Ok(Opcode::OP_TRAP { trapvec: Trap::Out }),
+                    0x22 => Ok(Opcode::OP_TRAP {
+                        trapvec: Trap::Puts,
+                    }),
+                    0x23 => Ok(Opcode::OP_TRAP { trapvec: Trap::In }),
+                    0x24 => Ok(Opcode::OP_TRAP {
+                        trapvec: Trap::Putsp,
+                    }),
+                    0x25 => Ok(Opcode::OP_TRAP {
+                        trapvec: Trap::Halt,
+                    }),
+                    _ => Err(OpcodeError::InvalidOpcode),
+                }
             }
             0b1101 => Ok(Opcode::OP_RES),
             _ => Err(OpcodeError::InvalidOpcode),
@@ -449,9 +475,14 @@ mod tests {
 
     #[test]
     fn test_op_trap() -> Result<(), OpcodeError> {
-        let instruction = 0b1111_0000_0000_0011;
+        let instruction = 0b1111_0000_0010_0000;
         let opcode = Opcode::from(instruction)?;
-        assert_eq!(opcode, Opcode::OP_TRAP { trapvec: 3 });
+        assert_eq!(
+            opcode,
+            Opcode::OP_TRAP {
+                trapvec: Trap::GetC
+            }
+        );
         Ok(())
     }
 
