@@ -388,6 +388,20 @@ mod tests {
     }
 
     #[test]
+    fn test_op_jsrr() -> Result<(), OpcodeError> {
+        let instruction = 0b0100_0000_0100_0000;
+        let opcode = Opcode::from(instruction)?;
+        assert_eq!(
+            opcode,
+            Opcode::OP_JSRR {
+                mode: false,
+                base_r: 1
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_op_ld() -> Result<(), OpcodeError> {
         let instruction = 0b0010_0010_0000_0001;
         let opcode = Opcode::from(instruction)?;
