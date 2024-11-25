@@ -32,11 +32,17 @@ pub enum Opcode {
         mode: bool,
         offset: u16,
     },
-    OP_AND {
+    OP_AND_SR {
         dr: u16,
         sr1: u16,
         mode: bool,
         sr2: u16,
+    },
+    OP_AND_IMM {
+        dr: u16,
+        sr1: u16,
+        mode: bool,
+        imm5: u16,
     },
     OP_LDR {
         dr: u16,
@@ -110,12 +116,21 @@ impl Opcode {
                 let dr = (instruction >> 9) & 0x7;
                 let sr1 = (instruction >> 6) & 0x7;
                 let mode = (instruction >> 5) & 0x1 == 1;
-                let sr2 = match mode {
-                    false => instruction & 0x3,
-                    true => sign_extend(instruction & 0x1F, 4),
-                };
-
-                Ok(Opcode::OP_AND { dr, sr1, mode, sr2 })
+                match mode {
+                    false => {
+                        let sr2 = instruction & 0x7;
+                        Ok(Opcode::OP_AND_SR { dr, sr1, mode, sr2 })
+                    }
+                    true => {
+                        let imm5 = sign_extend(instruction & 0x1F, 4);
+                        Ok(Opcode::OP_AND_IMM {
+                            dr,
+                            sr1,
+                            mode,
+                            imm5,
+                        })
+                    }
+                }
             }
             0b0000 => {
                 let n = ((instruction >> 11) & 0x1) != 0;
@@ -240,7 +255,7 @@ mod tests {
         let opcode = Opcode::from(instruction)?;
         assert_eq!(
             opcode,
-            Opcode::OP_AND {
+            Opcode::OP_AND_SR {
                 dr: 1,
                 sr1: 2,
                 mode: false,
@@ -252,11 +267,11 @@ mod tests {
         let opcode = Opcode::from(instruction)?;
         assert_eq!(
             opcode,
-            Opcode::OP_AND {
+            Opcode::OP_AND_IMM {
                 dr: 1,
                 sr1: 2,
                 mode: true,
-                sr2: 1
+                imm5: 1
             }
         );
 
