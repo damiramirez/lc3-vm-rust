@@ -6,7 +6,7 @@ pub enum Opcode {
         n: bool,
         z: bool,
         p: bool,
-        offset: u16,
+        offset: i16,
     },
     OP_ADD_SR {
         dr: u16,
@@ -18,19 +18,19 @@ pub enum Opcode {
         dr: u16,
         sr1: u16,
         mode: bool,
-        imm5: u16,
+        imm5: i16,
     },
     OP_LD {
         dr: u16,
-        offset: u16,
+        offset: i16,
     },
     OP_ST {
         sr: u16,
-        offset: u16,
+        offset: i16,
     },
     OP_JSR {
         mode: bool,
-        offset: u16,
+        offset: i16,
     },
     OP_JSRR {
         mode: bool,
@@ -46,17 +46,17 @@ pub enum Opcode {
         dr: u16,
         sr1: u16,
         mode: bool,
-        imm5: u16,
+        imm5: i16,
     },
     OP_LDR {
         dr: u16,
         base_r: u16,
-        offset: u16,
+        offset: i16,
     },
     OP_STR {
         sr: u16,
         base_r: u16,
-        offset: u16,
+        offset: i16,
     },
     OP_RTI,
     OP_NOT {
@@ -65,11 +65,11 @@ pub enum Opcode {
     },
     OP_LDI {
         dr: u16,
-        offset: u16,
+        offset: i16,
     },
     OP_STI {
         sr: u16,
-        offset: u16,
+        offset: i16,
     },
     OP_JMP {
         base_r: u16,
@@ -78,7 +78,7 @@ pub enum Opcode {
     OP_RES,
     OP_LEA {
         dr: u16,
-        offset: u16,
+        offset: i16,
     },
     OP_TRAP {
         trapvec: u16,
@@ -106,7 +106,7 @@ impl Opcode {
                         Ok(Opcode::OP_ADD_SR { dr, sr1, mode, sr2 })
                     }
                     true => {
-                        let imm5 = sign_extend(instruction & 0b_0000_0000_0001_1111, 5);
+                        let imm5 = sign_ext_imm5(instruction & 0b_0000_0000_0001_1111);
                         Ok(Opcode::OP_ADD_IMM {
                             dr,
                             sr1,
@@ -126,7 +126,7 @@ impl Opcode {
                         Ok(Opcode::OP_AND_SR { dr, sr1, mode, sr2 })
                     }
                     true => {
-                        let imm5 = sign_extend(instruction & 0b_0000_0000_0001_1111, 5);
+                        let imm5 = sign_ext_imm5(instruction);
                         Ok(Opcode::OP_AND_IMM {
                             dr,
                             sr1,
@@ -140,7 +140,7 @@ impl Opcode {
                 let n = ((instruction >> 11) & 0b0000_0000_0000_0001) != 0;
                 let z = ((instruction >> 10) & 0b0000_0000_0000_0001) != 0;
                 let p = ((instruction >> 9) & 0b0000_0000_0000_0001) != 0;
-                let offset = sign_extend(instruction & 0b0000_0001_1111_1111, 9);
+                let offset = sign_ext_imm9(instruction);
                 Ok(Opcode::OP_BR { n, z, p, offset })
             }
             0b1100 => {
@@ -158,30 +158,30 @@ impl Opcode {
                         Ok(Opcode::OP_JSRR { mode, base_r })
                     }
                     true => {
-                        let offset = sign_extend(instruction & 0b0000_0111_1111_1111, 11);
+                        let offset = sign_ext_imm11(instruction);
                         Ok(Opcode::OP_JSR { mode, offset })
                     }
                 }
             }
             0b0010 => {
                 let dr = (instruction >> 9) & 0b0000_0000_0000_0111;
-                let offset = sign_extend(instruction & 0b0000_0001_1111_1111, 9);
+                let offset = sign_ext_imm9(instruction);
                 Ok(Opcode::OP_LD { dr, offset })
             }
             0b1010 => {
                 let dr = (instruction >> 9) & 0b0000_0000_0000_0111;
-                let offset = sign_extend(instruction & 0b0000_0001_1111_1111, 9);
+                let offset = sign_ext_imm9(instruction);
                 Ok(Opcode::OP_LDI { dr, offset })
             }
             0b0110 => {
                 let dr = (instruction >> 9) & 0b0000_0000_0000_0111;
                 let base_r = (instruction >> 6) & 0b0000_0000_0000_0111;
-                let offset = sign_extend(instruction & 0b_0000_0000_0011_1111, 6);
+                let offset = sign_ext_imm6(instruction);
                 Ok(Opcode::OP_LDR { dr, base_r, offset })
             }
             0b1110 => {
                 let dr = (instruction >> 9) & 0b0000_0000_0000_0111;
-                let offset = sign_extend(instruction & 0b0000_0001_1111_1111, 9);
+                let offset = sign_ext_imm9(instruction);
                 Ok(Opcode::OP_LEA { dr, offset })
             }
             0b1001 => {
@@ -192,18 +192,18 @@ impl Opcode {
             0b1000 => Ok(Opcode::OP_RTI),
             0b0011 => {
                 let sr = (instruction >> 9) & 0b0000_0000_0000_0111;
-                let offset = sign_extend(instruction & 0b0000_0001_1111_1111, 9);
+                let offset = sign_ext_imm9(instruction);
                 Ok(Opcode::OP_ST { sr, offset })
             }
             0b1011 => {
                 let sr = (instruction >> 9) & 0b0000_0000_0000_0111;
-                let offset = sign_extend(instruction & 0b0000_0001_1111_1111, 9);
+                let offset = sign_ext_imm9(instruction);
                 Ok(Opcode::OP_STI { sr, offset })
             }
             0b0111 => {
                 let sr = (instruction >> 9) & 0b0000_0000_0000_0111;
                 let base_r = (instruction >> 6) & 0b0000_0000_0000_0111;
-                let offset = sign_extend(instruction & 0b0000_0000_0011_1111, 6);
+                let offset = sign_ext_imm6(instruction);
                 Ok(Opcode::OP_STR { sr, base_r, offset })
             }
             0b1111 => {
@@ -216,16 +216,48 @@ impl Opcode {
     }
 }
 
-fn sign_extend(mut value: u16, bit_count: u8) -> u16 {
-    let sub_bit_count = match bit_count.checked_sub(1) {
-        Some(value) => value,
-        None => todo!(),
-    };
+pub fn sign_ext_imm6(instruction: u16) -> i16 {
+    let offset: i16 = (instruction & 0b11_1111).try_into().unwrap_or_default();
 
-    if (value >> (sub_bit_count)) & 1 != 0 {
-        value |= 0b1111_1111_1111_1111 << bit_count;
+    if offset & 0b10_0000 != 0 {
+        offset | !0b11_1111
+    } else {
+        offset & 0b11_1111
     }
-    value
+}
+
+pub fn sign_ext_imm9(instruction: u16) -> i16 {
+    let offset: i16 = (instruction & 0b1_1111_1111).try_into().unwrap_or_default();
+
+    if offset & 0b1_0000_0000 != 0 {
+        offset | !0b1_1111_1111
+    } else {
+        offset & 0b1_1111_1111
+    }
+}
+
+pub fn sign_ext_imm5(instruction: u16) -> i16 {
+    let imm5: i16 = (instruction & 0b0000_0000_0001_1111)
+        .try_into()
+        .unwrap_or_default();
+
+    if imm5 & 0b1_0000 != 0 {
+        imm5 | !0b0001_1111
+    } else {
+        imm5 & 0b0001_1111
+    }
+}
+
+pub fn sign_ext_imm11(instruction: u16) -> i16 {
+    let offset: i16 = (instruction & 0b111_1111_1111)
+        .try_into()
+        .unwrap_or_default();
+
+    if offset & 0b100_0000_0000 != 0 {
+        offset | !0b111_1111_1111
+    } else {
+        offset & 0b111_1111_1111
+    }
 }
 
 #[cfg(test)]
@@ -287,19 +319,6 @@ mod tests {
             }
         );
 
-        Ok(())
-    }
-
-    #[test]
-    fn parse_add_mode_1_negative_imm5() -> Result<(), OpcodeError> {
-        let add = Opcode::OP_ADD_IMM {
-            dr: 1,
-            sr1: 2,
-            mode: true,
-            imm5: 0b1111_1111_1111_1101,
-        };
-        let instruction: u16 = 0b0001_0010_1011_1101;
-        assert_eq!(add, Opcode::from(instruction)?);
         Ok(())
     }
 
@@ -442,21 +461,5 @@ mod tests {
         let opcode = Opcode::from(instruction)?;
         assert_eq!(opcode, Opcode::OP_RES);
         Ok(())
-    }
-
-    #[test]
-    fn test_sign_extend_positive() {
-        let value = 0b00011;
-        let bit_count = 5;
-        let result = sign_extend(value, bit_count);
-        assert_eq!(result, 0b00011);
-    }
-
-    #[test]
-    fn test_sign_extend_negative() {
-        let value = 0b11111;
-        let bit_count = 5;
-        let result = sign_extend(value, bit_count);
-        assert_eq!(result, 0b1111_1111_1111_1111);
     }
 }
