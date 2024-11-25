@@ -32,6 +32,10 @@ pub enum Opcode {
         mode: bool,
         offset: u16,
     },
+    OP_JSRR {
+        mode: bool,
+        base_r: u16,
+    },
     OP_AND_SR {
         dr: u16,
         sr1: u16,
@@ -147,9 +151,17 @@ impl Opcode {
                 }
             }
             0b0100 => {
-                let offset = sign_extend(instruction & 0b0000_0111_1111_1111, 11);
                 let mode = (instruction >> 11) & 0b0000_0000_0000_0001 == 1;
-                Ok(Opcode::OP_JSR { mode, offset })
+                match mode {
+                    false => {
+                        let base_r = (instruction >> 6) & 0b0000_0000_0011_1111;
+                        Ok(Opcode::OP_JSRR { mode, base_r })
+                    }
+                    true => {
+                        let offset = sign_extend(instruction & 0b0000_0111_1111_1111, 11);
+                        Ok(Opcode::OP_JSR { mode, offset })
+                    }
+                }
             }
             0b0010 => {
                 let dr = (instruction >> 9) & 0b0000_0000_0000_0111;
