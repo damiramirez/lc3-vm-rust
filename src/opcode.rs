@@ -8,11 +8,17 @@ pub enum Opcode {
         p: bool,
         offset: u16,
     },
-    OP_ADD {
+    OP_ADD_SR {
         dr: u16,
         sr1: u16,
         mode: bool,
         sr2: u16,
+    },
+    OP_ADD_IMM {
+        dr: u16,
+        sr1: u16,
+        mode: bool,
+        imm5: u16,
     },
     OP_LD {
         dr: u16,
@@ -34,12 +40,12 @@ pub enum Opcode {
     },
     OP_LDR {
         dr: u16,
-        base: u16,
+        base_r: u16,
         offset: u16,
     },
     OP_STR {
         sr: u16,
-        base: u16,
+        base_r: u16,
         offset: u16,
     },
     OP_RTI,
@@ -56,7 +62,7 @@ pub enum Opcode {
         offset: u16,
     },
     OP_JMP {
-        base: u16,
+        base_r: u16,
     },
     OP_RET,
     OP_RES,
@@ -84,12 +90,21 @@ impl Opcode {
                 let dr = (instruction >> 9) & 0x7;
                 let sr1 = (instruction >> 6) & 0x7;
                 let mode = (instruction >> 5) & 0x1 == 1;
-                let sr2 = match mode {
-                    false => instruction & 0x7,
-                    true => sign_extend(instruction & 0x1F, 4),
-                };
-
-                Ok(Opcode::OP_ADD { dr, sr1, mode, sr2 })
+                match mode {
+                    false => {
+                        let sr2 = instruction & 0x7;
+                        Ok(Opcode::OP_ADD_SR { dr, sr1, mode, sr2 })
+                    }
+                    true => {
+                        let imm5 = sign_extend(instruction & 0x1F, 4);
+                        Ok(Opcode::OP_ADD_IMM {
+                            dr,
+                            sr1,
+                            mode,
+                            imm5,
+                        })
+                    }
+                }
             }
             0b0101 => {
                 let dr = (instruction >> 9) & 0x7;
@@ -110,10 +125,10 @@ impl Opcode {
                 Ok(Opcode::OP_BR { n, z, p, offset })
             }
             0b1100 => {
-                let base = (instruction >> 6) & 0x7;
-                match base {
+                let base_r = (instruction >> 6) & 0x7;
+                match base_r {
                     0b111 => Ok(Opcode::OP_RET),
-                    _ => Ok(Opcode::OP_JMP { base }),
+                    _ => Ok(Opcode::OP_JMP { base_r }),
                 }
             }
             0b0100 => {
@@ -133,9 +148,9 @@ impl Opcode {
             }
             0b0110 => {
                 let dr = (instruction >> 9) & 0x7;
-                let base = (instruction >> 6) & 0x7;
+                let base_r = (instruction >> 6) & 0x7;
                 let offset = sign_extend(instruction & 0x1F, 6);
-                Ok(Opcode::OP_LDR { dr, base, offset })
+                Ok(Opcode::OP_LDR { dr, base_r, offset })
             }
             0b1110 => {
                 let dr = (instruction >> 9) & 0x7;
@@ -160,9 +175,9 @@ impl Opcode {
             }
             0b0111 => {
                 let sr = (instruction >> 9) & 0x7;
-                let base = (instruction >> 6) & 0x7;
+                let base_r = (instruction >> 6) & 0x7;
                 let offset = sign_extend(instruction & 0x3F, 6);
-                Ok(Opcode::OP_STR { sr, base, offset })
+                Ok(Opcode::OP_STR { sr, base_r, offset })
             }
             0b1111 => {
                 let trapvec = instruction & 0xFF;
@@ -196,7 +211,7 @@ mod tests {
         let opcode = Opcode::from(instruction)?;
         assert_eq!(
             opcode,
-            Opcode::OP_ADD {
+            Opcode::OP_ADD_SR {
                 dr: 1,
                 sr1: 2,
                 mode: false,
@@ -208,11 +223,11 @@ mod tests {
         let opcode = Opcode::from(instruction)?;
         assert_eq!(
             opcode,
-            Opcode::OP_ADD {
+            Opcode::OP_ADD_IMM {
                 dr: 1,
                 sr1: 2,
                 mode: true,
-                sr2: 1
+                imm5: 1
             }
         );
 
@@ -250,11 +265,11 @@ mod tests {
 
     #[test]
     fn parse_add_mode_1_negative_imm5() -> Result<(), OpcodeError> {
-        let add = Opcode::OP_ADD {
+        let add = Opcode::OP_ADD_IMM {
             dr: 1,
             sr1: 2,
             mode: true,
-            sr2: 0xFFFD,
+            imm5: 0xFFFD,
         };
         let instruction: u16 = 0b0001_0010_1011_1101;
         assert_eq!(add, Opcode::from(instruction)?);
@@ -282,7 +297,7 @@ mod tests {
     fn test_op_jmp() -> Result<(), OpcodeError> {
         let instruction = 0b1100_0000_1101_1011;
         let opcode = Opcode::from(instruction)?;
-        assert_eq!(opcode, Opcode::OP_JMP { base: 3 });
+        assert_eq!(opcode, Opcode::OP_JMP { base_r: 3 });
         Ok(())
     }
 
@@ -324,7 +339,7 @@ mod tests {
             opcode,
             Opcode::OP_LDR {
                 dr: 1,
-                base: 2,
+                base_r: 2,
                 offset: 1
             }
         );
@@ -379,7 +394,7 @@ mod tests {
             opcode,
             Opcode::OP_STR {
                 sr: 1,
-                base: 2,
+                base_r: 2,
                 offset: 1
             }
         );
