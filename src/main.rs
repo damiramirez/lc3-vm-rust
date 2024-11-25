@@ -4,6 +4,7 @@ use cpu::CPU;
 use memory::Memory;
 
 mod cpu;
+mod flags;
 mod memory;
 mod opcode;
 
