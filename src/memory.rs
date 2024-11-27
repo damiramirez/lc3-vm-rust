@@ -17,8 +17,8 @@ impl Memory {
         }
     }
 
-    pub fn write(&mut self, address: usize, value: u16) -> Result<(), MemoryError> {
-        if let Some(cell) = self.cells.get_mut(address) {
+    pub fn write(&mut self, address: u16, value: u16) -> Result<(), MemoryError> {
+        if let Some(cell) = self.cells.get_mut::<usize>(address.into()) {
             *cell = value;
             Ok(())
         } else {
@@ -40,7 +40,7 @@ impl Memory {
 
         for (i, data) in data_no_origin.iter().enumerate() {
             let position = origin.checked_add(i).ok_or(MemoryError::Overflow)?;
-            self.write(position, *data)?;
+            self.write(position.try_into().unwrap_or_default(), *data)?;
         }
 
         Ok(())

@@ -6,57 +6,51 @@ pub enum Opcode {
         n: bool,
         z: bool,
         p: bool,
-        offset: i16,
+        offset: u16,
     },
     OP_ADD_SR {
         dr: u16,
         sr1: u16,
-        mode: bool,
         sr2: u16,
     },
     OP_ADD_IMM {
         dr: u16,
         sr1: u16,
-        mode: bool,
-        imm5: i16,
+        imm5: u16,
     },
     OP_LD {
         dr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_ST {
         sr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_JSR {
-        mode: bool,
-        offset: i16,
+        offset: u16,
     },
     OP_JSRR {
-        mode: bool,
         base_r: u16,
     },
     OP_AND_SR {
         dr: u16,
         sr1: u16,
-        mode: bool,
         sr2: u16,
     },
     OP_AND_IMM {
         dr: u16,
         sr1: u16,
-        mode: bool,
-        imm5: i16,
+        imm5: u16,
     },
     OP_LDR {
         dr: u16,
         base_r: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_STR {
         sr: u16,
         base_r: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_RTI,
     OP_NOT {
@@ -65,11 +59,11 @@ pub enum Opcode {
     },
     OP_LDI {
         dr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_STI {
         sr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_JMP {
         base_r: u16,
@@ -78,7 +72,7 @@ pub enum Opcode {
     OP_RES,
     OP_LEA {
         dr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_TRAP {
         trapvec: Trap,
@@ -113,16 +107,11 @@ impl Opcode {
                 match mode {
                     false => {
                         let sr2 = instruction & 0b0000_0000_0000_0111;
-                        Ok(Opcode::OP_ADD_SR { dr, sr1, mode, sr2 })
+                        Ok(Opcode::OP_ADD_SR { dr, sr1, sr2 })
                     }
                     true => {
                         let imm5 = sign_ext_imm5(instruction & 0b_0000_0000_0001_1111);
-                        Ok(Opcode::OP_ADD_IMM {
-                            dr,
-                            sr1,
-                            mode,
-                            imm5,
-                        })
+                        Ok(Opcode::OP_ADD_IMM { dr, sr1, imm5 })
                     }
                 }
             }
@@ -133,16 +122,11 @@ impl Opcode {
                 match mode {
                     false => {
                         let sr2 = instruction & 0b0000_0000_0000_0111;
-                        Ok(Opcode::OP_AND_SR { dr, sr1, mode, sr2 })
+                        Ok(Opcode::OP_AND_SR { dr, sr1, sr2 })
                     }
                     true => {
                         let imm5 = sign_ext_imm5(instruction);
-                        Ok(Opcode::OP_AND_IMM {
-                            dr,
-                            sr1,
-                            mode,
-                            imm5,
-                        })
+                        Ok(Opcode::OP_AND_IMM { dr, sr1, imm5 })
                     }
                 }
             }
@@ -165,11 +149,11 @@ impl Opcode {
                 match mode {
                     false => {
                         let base_r = (instruction >> 6) & 0b0000_0000_0011_1111;
-                        Ok(Opcode::OP_JSRR { mode, base_r })
+                        Ok(Opcode::OP_JSRR { base_r })
                     }
                     true => {
                         let offset = sign_ext_imm11(instruction);
-                        Ok(Opcode::OP_JSR { mode, offset })
+                        Ok(Opcode::OP_JSR { offset })
                     }
                 }
             }
@@ -242,8 +226,8 @@ impl Opcode {
     }
 }
 
-pub fn sign_ext_imm6(instruction: u16) -> i16 {
-    let offset: i16 = (instruction & 0b11_1111).try_into().unwrap_or_default();
+pub fn sign_ext_imm6(instruction: u16) -> u16 {
+    let offset = instruction & 0b11_1111;
 
     if offset & 0b10_0000 != 0 {
         offset | !0b11_1111
@@ -252,8 +236,8 @@ pub fn sign_ext_imm6(instruction: u16) -> i16 {
     }
 }
 
-pub fn sign_ext_imm9(instruction: u16) -> i16 {
-    let offset: i16 = (instruction & 0b1_1111_1111).try_into().unwrap_or_default();
+pub fn sign_ext_imm9(instruction: u16) -> u16 {
+    let offset = instruction & 0b1_1111_1111;
 
     if offset & 0b1_0000_0000 != 0 {
         offset | !0b1_1111_1111
@@ -262,10 +246,8 @@ pub fn sign_ext_imm9(instruction: u16) -> i16 {
     }
 }
 
-pub fn sign_ext_imm5(instruction: u16) -> i16 {
-    let imm5: i16 = (instruction & 0b0000_0000_0001_1111)
-        .try_into()
-        .unwrap_or_default();
+pub fn sign_ext_imm5(instruction: u16) -> u16 {
+    let imm5 = instruction & 0b0000_0000_0001_1111;
 
     if imm5 & 0b1_0000 != 0 {
         imm5 | !0b0001_1111
@@ -274,10 +256,8 @@ pub fn sign_ext_imm5(instruction: u16) -> i16 {
     }
 }
 
-pub fn sign_ext_imm11(instruction: u16) -> i16 {
-    let offset: i16 = (instruction & 0b111_1111_1111)
-        .try_into()
-        .unwrap_or_default();
+pub fn sign_ext_imm11(instruction: u16) -> u16 {
+    let offset = instruction & 0b111_1111_1111;
 
     if offset & 0b100_0000_0000 != 0 {
         offset | !0b111_1111_1111
@@ -299,7 +279,7 @@ mod tests {
             Opcode::OP_ADD_SR {
                 dr: 1,
                 sr1: 2,
-                mode: false,
+
                 sr2: 3
             }
         );
@@ -311,7 +291,7 @@ mod tests {
             Opcode::OP_ADD_IMM {
                 dr: 1,
                 sr1: 2,
-                mode: true,
+
                 imm5: 1
             }
         );
@@ -328,7 +308,6 @@ mod tests {
             Opcode::OP_AND_SR {
                 dr: 1,
                 sr1: 2,
-                mode: false,
                 sr2: 3
             }
         );
@@ -340,7 +319,6 @@ mod tests {
             Opcode::OP_AND_IMM {
                 dr: 1,
                 sr1: 2,
-                mode: true,
                 imm5: 1
             }
         );
@@ -377,13 +355,7 @@ mod tests {
     fn test_op_jsr() -> Result<(), OpcodeError> {
         let instruction = 0b0100_1000_0000_0001;
         let opcode = Opcode::from(instruction)?;
-        assert_eq!(
-            opcode,
-            Opcode::OP_JSR {
-                mode: true,
-                offset: 1
-            }
-        );
+        assert_eq!(opcode, Opcode::OP_JSR { offset: 1 });
         Ok(())
     }
 
@@ -391,13 +363,7 @@ mod tests {
     fn test_op_jsrr() -> Result<(), OpcodeError> {
         let instruction = 0b0100_0000_0100_0000;
         let opcode = Opcode::from(instruction)?;
-        assert_eq!(
-            opcode,
-            Opcode::OP_JSRR {
-                mode: false,
-                base_r: 1
-            }
-        );
+        assert_eq!(opcode, Opcode::OP_JSRR { base_r: 1 });
         Ok(())
     }
 

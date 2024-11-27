@@ -4,6 +4,7 @@ use cpu::CPU;
 use memory::Memory;
 
 mod cpu;
+mod flags;
 mod memory;
 mod opcode;
 
@@ -26,7 +27,7 @@ fn main() {
     for (i, value) in memory.cells.iter().enumerate() {
         if *value != 0 {
             print!("Address {} => ", i);
-            cpu.fetch_instruction(&memory);
+            cpu.fetch_instruction();
         }
     }
 }
