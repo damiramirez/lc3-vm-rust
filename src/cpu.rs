@@ -51,7 +51,6 @@ impl CPU {
             let instruction = self.fetch_instruction().ok_or(CPUErrors::Decode)?;
             self.pc = self.pc.wrapping_add(1);
             let opcode = Opcode::from(instruction).map_err(|_| CPUErrors::Execute)?;
-            println!("{} - {} - {:#?}", self.pc, instruction, opcode);
             self.execute(opcode);
         }
 
@@ -162,10 +161,10 @@ impl CPU {
                 self.pc = self.r7;
             }
             Opcode::OP_RTI => {
-                println!("unused")
+                println!("unused RTI")
             }
             Opcode::OP_RES => {
-                println!("unused");
+                println!("unused RES");
             }
             Opcode::OP_ST { sr, offset } => {
                 let address = self.pc.wrapping_add(offset);
@@ -186,6 +185,7 @@ impl CPU {
                     .map_err(|_| CPUErrors::Execute)?;
             }
             Opcode::OP_TRAP { trapvec } => {
+                self.r7 = self.pc;
                 match trapvec {
                     Trap::GetC => {
                         let mut buffer: [u8; 1] = [0; 1];
@@ -220,6 +220,8 @@ impl CPU {
                     }
                     Trap::In => {
                         print!("Enter a character: ");
+                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+
                         let mut buffer: [u8; 1] = [0; 1];
                         io::stdin()
                             .read_exact(&mut buffer)
@@ -228,8 +230,8 @@ impl CPU {
                         let char: char = (*read_char).into();
                         print!("{}", char);
 
-                        self.r0 = (*read_char).into();
-                        self.update_flag(self.r0)?;
+                        self.update_register(0, (*read_char).into())?;
+                        self.update_flag(0)?;
                         io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
                     }
                     Trap::Putsp => {
@@ -244,13 +246,15 @@ impl CPU {
                             let first_c: u8 =
                                 first_char.try_into().map_err(|_| CPUErrors::Execute)?;
                             let first_c: char = first_c.into();
+                            print!("{}", first_c);
 
                             let second_c: u8 =
                                 second_char.try_into().map_err(|_| CPUErrors::Execute)?;
-                            let second_c: char = second_c.into();
+                            if second_c != 0x00 {
+                                let second_c: char = second_c.into();
+                                print!("{}", second_c);
+                            }
 
-                            print!("{}", first_c);
-                            print!("{}", second_c);
                             address = address.wrapping_add(1);
                             value = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
                         }

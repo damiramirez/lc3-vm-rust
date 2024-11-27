@@ -1,7 +1,5 @@
-use std::{env, fs};
-
 use cpu::CPU;
-
+use std::{env, fs};
 mod cpu;
 mod flags;
 mod memory;
