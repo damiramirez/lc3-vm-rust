@@ -1,9 +1,10 @@
 use crate::flags::ConditionFlags;
 use crate::memory::Memory;
 use crate::opcode::{Opcode, Trap};
-use std::io::Read;
-use std::io::{self, Write};
 
+use std::io::{self, Read, Write};
+
+#[derive(Debug)]
 pub enum CPUErrors {
     Register,
     Flag,
@@ -51,7 +52,7 @@ impl CPU {
             self.pc = self.pc.wrapping_add(1);
             let opcode = Opcode::from(instruction).map_err(|_| CPUErrors::Execute)?;
             println!("{} - {} - {:#?}", self.pc, instruction, opcode);
-            let _ = self.execute(opcode);
+            self.execute(opcode);
         }
 
         Ok(())
@@ -320,5 +321,223 @@ impl CPU {
         }
 
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::as_conversions)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cpu_initialization() {
+        let cpu = CPU::new();
+        assert_eq!(cpu.r0, 0);
+        assert_eq!(cpu.r1, 0);
+        assert_eq!(cpu.r2, 0);
+        assert_eq!(cpu.r3, 0);
+        assert_eq!(cpu.r4, 0);
+        assert_eq!(cpu.r5, 0);
+        assert_eq!(cpu.r6, 0);
+        assert_eq!(cpu.r7, 0);
+        assert_eq!(cpu.pc, 0x3000);
+        assert_eq!(cpu.cond, 0);
+        assert!(cpu.running);
+    }
+
+    #[test]
+    fn test_update_register() {
+        let mut cpu = CPU::new();
+        cpu.update_register(0, 42).unwrap();
+        assert_eq!(cpu.r0, 42);
+    }
+
+    #[test]
+    fn test_update_flag() {
+        let mut cpu = CPU::new();
+        cpu.update_register(0, 0).unwrap();
+        cpu.update_flag(0).unwrap();
+        assert_eq!(cpu.cond, ConditionFlags::ZRO.into());
+
+        cpu.update_register(0, 1).unwrap();
+        cpu.update_flag(0).unwrap();
+        assert_eq!(cpu.cond, ConditionFlags::POS.into());
+
+        cpu.update_register(0, 0xFFFF).unwrap();
+        cpu.update_flag(0).unwrap();
+        assert_eq!(cpu.cond, ConditionFlags::NEG.into());
+    }
+
+    #[test]
+    fn test_fetch_instruction() {
+        let mut cpu = CPU::new();
+        cpu.memory.write(0x3000, 0x1234).unwrap();
+        let instruction = cpu.fetch_instruction().unwrap();
+        assert_eq!(instruction, 0x1234);
+    }
+
+    #[test]
+    fn test_execute_add_reg() {
+        let mut cpu = CPU::new();
+        cpu.update_register(1, 1).unwrap();
+        cpu.update_register(2, 2).unwrap();
+        let opcode = Opcode::OP_ADD_REG {
+            dr: 0,
+            sr1: 1,
+            sr2: 2,
+        };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, 3);
+    }
+
+    #[test]
+    fn test_execute_add_imm() {
+        let mut cpu = CPU::new();
+        cpu.update_register(1, 1).unwrap();
+        let opcode = Opcode::OP_ADD_IMM {
+            dr: 0,
+            sr1: 1,
+            imm5: 2,
+        };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, 3);
+    }
+
+    #[test]
+    fn test_execute_and_reg() {
+        let mut cpu = CPU::new();
+        cpu.update_register(1, 0b1010).unwrap();
+        cpu.update_register(2, 0b1100).unwrap();
+        let opcode = Opcode::OP_AND_REG {
+            dr: 0,
+            sr1: 1,
+            sr2: 2,
+        };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, 0b1000);
+    }
+
+    #[test]
+    fn test_execute_and_imm() {
+        let mut cpu = CPU::new();
+        cpu.update_register(1, 0b1010).unwrap();
+        let opcode = Opcode::OP_AND_IMM {
+            dr: 0,
+            sr1: 1,
+            imm5: 0b1100,
+        };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, 0b1000);
+    }
+
+    #[test]
+    fn test_execute_not() {
+        let mut cpu = CPU::new();
+        cpu.update_register(1, 0b1010).unwrap();
+        let opcode = Opcode::OP_NOT { dr: 0, sr: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, !0b1010);
+    }
+
+    #[test]
+    fn test_execute_br() {
+        let mut cpu = CPU::new();
+        cpu.cond = ConditionFlags::ZRO.into();
+        let opcode = Opcode::OP_BR {
+            n: false,
+            z: true,
+            p: false,
+            offset: 1,
+        };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.pc, 0x3001);
+    }
+
+    #[test]
+    fn test_execute_jmp() {
+        let mut cpu = CPU::new();
+        cpu.update_register(1, 0x1234).unwrap();
+        let opcode = Opcode::OP_JMP { base_r: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.pc, 0x1234);
+    }
+
+    #[test]
+    fn test_execute_jsr() {
+        let mut cpu = CPU::new();
+        let opcode = Opcode::OP_JSR { offset: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.pc, 0x3001);
+        assert_eq!(cpu.r7, 0x3000);
+    }
+
+    #[test]
+    fn test_execute_jsrr() {
+        let mut cpu = CPU::new();
+        cpu.update_register(1, 0x1234).unwrap();
+        let opcode = Opcode::OP_JSRR { base_r: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.pc, 0x1234);
+        assert_eq!(cpu.r7, 0x3000);
+    }
+
+    #[test]
+    fn test_execute_ld() {
+        let mut cpu = CPU::new();
+        cpu.memory.write(0x3001, 0x1234).unwrap();
+        let opcode = Opcode::OP_LD { dr: 0, offset: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, 0x1234);
+    }
+
+    #[test]
+    fn test_execute_ldi() {
+        let mut cpu = CPU::new();
+        cpu.memory.write(0x3001, 0x3002).unwrap();
+        cpu.memory.write(0x3002, 0x1234).unwrap();
+        let opcode = Opcode::OP_LDI { dr: 0, offset: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, 0x1234);
+    }
+
+    #[test]
+    fn test_execute_ldr() {
+        let mut cpu = CPU::new();
+        cpu.update_register(1, 0x3001).unwrap();
+        cpu.memory.write(0x3002, 0x1234).unwrap();
+        let opcode = Opcode::OP_LDR {
+            dr: 0,
+            base_r: 1,
+            offset: 1,
+        };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, 0x1234);
+    }
+
+    #[test]
+    fn test_execute_lea() {
+        let mut cpu = CPU::new();
+        let opcode = Opcode::OP_LEA { dr: 0, offset: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.r0, 0x3001);
+    }
+
+    #[test]
+    fn test_execute_st() {
+        let mut cpu = CPU::new();
+        cpu.update_register(0, 0x1234).unwrap();
+        let opcode = Opcode::OP_ST { sr: 0, offset: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.memory.read(0x3001).unwrap(), 0x1234);
+    }
+
+    #[test]
+    fn test_execute_sti() {
+        let mut cpu = CPU::new();
+        cpu.memory.write(0x3001, 0x3002).unwrap();
+        cpu.update_register(0, 0x1234).unwrap();
+        let opcode = Opcode::OP_STI { sr: 0, offset: 1 };
+        cpu.execute(opcode).unwrap();
+        assert_eq!(cpu.memory.read(0x3002).unwrap(), 0x1234);
     }
 }
