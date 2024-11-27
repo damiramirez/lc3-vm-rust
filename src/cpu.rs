@@ -2,10 +2,7 @@ use crate::flags::ConditionFlags;
 use crate::memory::Memory;
 use crate::opcode::{Opcode, Trap};
 use std::io::Read;
-use std::{
-    io::{self, Write},
-    process,
-};
+use std::io::{self, Write};
 
 pub enum CPUErrors {
     Register,
