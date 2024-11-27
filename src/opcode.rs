@@ -97,7 +97,6 @@ pub enum Trap {
 impl Opcode {
     pub fn from(instruction: u16) -> Result<Self, OpcodeError> {
         let opcode = (instruction >> 12) & 0b0000_0000_0000_1111;
-        print!("Instruction: {:016b} - ", instruction);
 
         match opcode {
             0x0001 => {

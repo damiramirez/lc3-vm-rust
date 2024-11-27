@@ -1,7 +1,6 @@
 use std::{env, fs};
 
 use cpu::CPU;
-use memory::Memory;
 
 mod cpu;
 mod flags;
@@ -21,15 +20,8 @@ fn main() {
     };
 
     let mut cpu = CPU::new();
-    let mut memory = Memory::new();
-    let _ = memory.load_program(&bytes);
-
-    for (i, value) in memory.cells.iter().enumerate() {
-        if *value != 0 {
-            print!("Address {} => ", i);
-            cpu.fetch_instruction();
-        }
-    }
+    let _ = cpu.memory.load_program(&bytes);
+    let _ = cpu.execute_program();
 }
 
 fn load_obj(filename: &str) -> Result<Vec<u16>, String> {

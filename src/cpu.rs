@@ -1,17 +1,17 @@
 use crate::flags::ConditionFlags;
 use crate::memory::Memory;
 use crate::opcode::{Opcode, Trap};
+use std::io::Read;
 use std::{
-    fmt::Debug,
-    fs::File,
-    io::{self, Read, Write},
-    os::fd::AsFd,
+    io::{self, Write},
+    process,
 };
 
 pub enum CPUErrors {
     Register,
     Flag,
     Execute,
+    Decode,
 }
 
 #[warn(clippy::upper_case_acronyms)]
@@ -27,6 +27,7 @@ pub struct CPU {
     pub pc: u16,
     pub cond: u16,
     pub memory: Memory,
+    pub running: bool,
 }
 
 impl CPU {
@@ -43,15 +44,24 @@ impl CPU {
             pc: 0x3000,
             cond: 0,
             memory: Memory::new(),
+            running: true,
         }
+    }
+
+    pub fn execute_program(&mut self) -> Result<(), CPUErrors> {
+        while self.running {
+            let instruction = self.fetch_instruction().ok_or(CPUErrors::Decode)?;
+            self.pc = self.pc.wrapping_add(1);
+            let opcode = Opcode::from(instruction).map_err(|_| CPUErrors::Execute)?;
+            println!("{} - {} - {:#?}", self.pc, instruction, opcode);
+            let _ = self.execute(opcode);
+        }
+
+        Ok(())
     }
 
     pub fn fetch_instruction(&mut self) -> Option<u16> {
         let instruction = self.memory.read(self.pc.into())?;
-        self.pc = self.pc.checked_add(1)?;
-
-        let op = Opcode::from(instruction);
-
         Some(instruction)
     }
 
@@ -179,8 +189,22 @@ impl CPU {
             }
             Opcode::OP_TRAP { trapvec } => {
                 match trapvec {
-                    Trap::GetC => todo!(),
-                    Trap::Out => todo!(),
+                    Trap::GetC => {
+                        let mut buffer: [u8; 1] = [0; 1];
+                        io::stdin()
+                            .read_exact(&mut buffer)
+                            .map_err(|_| CPUErrors::Execute)?;
+                        let read_char = buffer.first().ok_or(CPUErrors::Execute)?;
+
+                        self.r0 = (*read_char).into();
+                        self.update_flag(self.r0)?;
+                    }
+                    Trap::Out => {
+                        let r0_value: u8 = self.r0.try_into().map_err(|_| CPUErrors::Execute)?;
+                        let char: char = r0_value.into();
+                        print!("{}", char);
+                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                    }
                     Trap::Puts => {
                         let mut address = self.r0;
                         let mut value =
@@ -196,9 +220,49 @@ impl CPU {
 
                         io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
                     }
-                    Trap::In => todo!(),
-                    Trap::Putsp => todo!(),
-                    Trap::Halt => todo!(),
+                    Trap::In => {
+                        print!("Enter a character: ");
+                        let mut buffer: [u8; 1] = [0; 1];
+                        io::stdin()
+                            .read_exact(&mut buffer)
+                            .map_err(|_| CPUErrors::Execute)?;
+                        let read_char = buffer.first().ok_or(CPUErrors::Execute)?;
+                        let char: char = (*read_char).into();
+                        print!("{}", char);
+
+                        self.r0 = (*read_char).into();
+                        self.update_flag(self.r0)?;
+                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                    }
+                    Trap::Putsp => {
+                        let mut address = self.r0;
+                        let mut value =
+                            self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+
+                        while value != 0x0000 {
+                            let first_char = (value >> 8) & 0b0000_0000_1111_1111;
+                            let second_char = value & 0b0000_0000_1111_1111;
+
+                            let first_c: u8 =
+                                first_char.try_into().map_err(|_| CPUErrors::Execute)?;
+                            let first_c: char = first_c.into();
+
+                            let second_c: u8 =
+                                second_char.try_into().map_err(|_| CPUErrors::Execute)?;
+                            let second_c: char = second_c.into();
+
+                            print!("{}", first_c);
+                            print!("{}", second_c);
+                            address = address.wrapping_add(1);
+                            value = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                        }
+
+                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                    }
+                    Trap::Halt => {
+                        // io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                        self.running = false;
+                    }
                 };
             }
             _ => return Err(CPUErrors::Execute),
