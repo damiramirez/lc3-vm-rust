@@ -62,9 +62,7 @@ impl CPU {
             }
             Opcode::OP_ADD_IMM { dr, sr1, imm5 } => {
                 let src_register = self.get_register_value(sr1)?;
-
-                // TODO: Check this imm5 type
-                let sum = src_register.wrapping_add(imm5.try_into().unwrap_or_default());
+                let sum = src_register.wrapping_add(imm5);
                 self.update_register(dr, sum)
                     .map_err(|_| CPUErrors::Execute)?;
 
@@ -84,7 +82,7 @@ impl CPU {
                 let src_register = self.get_register_value(sr1)?;
 
                 // TODO: Check this imm5 type
-                let imm5: u16 = imm5.try_into().unwrap_or_default();
+                let imm5: u16 = imm5;
                 let result = src_register & imm5;
                 self.update_register(dr, result)
                     .map_err(|_| CPUErrors::Execute)?;
@@ -99,7 +97,7 @@ impl CPU {
                     || (p && self.cond == ConditionFlags::POS.into())
                 {
                     // TODO: Check this imm5 type
-                    self.pc = self.pc.wrapping_add(offset.try_into().unwrap_or_default());
+                    self.pc = self.pc.wrapping_add(offset);
                 }
             }
             Opcode::OP_JMP { base_r } => {
@@ -107,21 +105,21 @@ impl CPU {
             }
             Opcode::OP_JSR { offset } => {
                 self.r7 = self.pc;
-                self.pc = self.pc.wrapping_add(offset.try_into().unwrap_or_default());
+                self.pc = self.pc.wrapping_add(offset);
             }
             Opcode::OP_JSRR { base_r } => {
                 self.r7 = self.pc;
                 self.pc = self.get_register_value(base_r)?;
             }
             Opcode::OP_LD { dr, offset } => {
-                let address = self.pc.wrapping_add(offset.try_into().unwrap_or_default());
+                let address = self.pc.wrapping_add(offset);
                 if let Some(read_value) = self.memory.read(address.into()) {
                     self.update_register(dr, read_value)?;
                     self.update_flag(dr)?;
                 }
             }
             Opcode::OP_LDI { dr, offset } => {
-                let address = self.pc.wrapping_add(offset.try_into().unwrap_or_default());
+                let address = self.pc.wrapping_add(offset);
                 if let Some(read_value) = self.memory.read(address.into()) {
                     self.update_register(dr, read_value)?;
                     self.update_flag(dr)?;
@@ -129,14 +127,14 @@ impl CPU {
             }
             Opcode::OP_LDR { dr, base_r, offset } => {
                 let base_value = self.get_register_value(base_r)?;
-                let address = base_value.wrapping_add(offset.try_into().unwrap_or_default());
+                let address = base_value.wrapping_add(offset);
                 if let Some(read_value) = self.memory.read(address.into()) {
                     self.update_register(dr, read_value)?;
                     self.update_flag(dr)?;
                 }
             }
             Opcode::OP_LEA { dr, offset } => {
-                let result = self.pc.wrapping_add(offset.try_into().unwrap_or_default());
+                let result = self.pc.wrapping_add(offset);
                 self.update_register(dr, result)?;
                 self.update_flag(dr)?;
             }

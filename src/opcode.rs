@@ -6,7 +6,7 @@ pub enum Opcode {
         n: bool,
         z: bool,
         p: bool,
-        offset: i16,
+        offset: u16,
     },
     OP_ADD_SR {
         dr: u16,
@@ -16,18 +16,18 @@ pub enum Opcode {
     OP_ADD_IMM {
         dr: u16,
         sr1: u16,
-        imm5: i16,
+        imm5: u16,
     },
     OP_LD {
         dr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_ST {
         sr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_JSR {
-        offset: i16,
+        offset: u16,
     },
     OP_JSRR {
         base_r: u16,
@@ -40,17 +40,17 @@ pub enum Opcode {
     OP_AND_IMM {
         dr: u16,
         sr1: u16,
-        imm5: i16,
+        imm5: u16,
     },
     OP_LDR {
         dr: u16,
         base_r: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_STR {
         sr: u16,
         base_r: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_RTI,
     OP_NOT {
@@ -59,11 +59,11 @@ pub enum Opcode {
     },
     OP_LDI {
         dr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_STI {
         sr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_JMP {
         base_r: u16,
@@ -72,7 +72,7 @@ pub enum Opcode {
     OP_RES,
     OP_LEA {
         dr: u16,
-        offset: i16,
+        offset: u16,
     },
     OP_TRAP {
         trapvec: Trap,
@@ -226,8 +226,8 @@ impl Opcode {
     }
 }
 
-pub fn sign_ext_imm6(instruction: u16) -> i16 {
-    let offset: i16 = (instruction & 0b11_1111).try_into().unwrap_or_default();
+pub fn sign_ext_imm6(instruction: u16) -> u16 {
+    let offset = instruction & 0b11_1111;
 
     if offset & 0b10_0000 != 0 {
         offset | !0b11_1111
@@ -236,8 +236,8 @@ pub fn sign_ext_imm6(instruction: u16) -> i16 {
     }
 }
 
-pub fn sign_ext_imm9(instruction: u16) -> i16 {
-    let offset: i16 = (instruction & 0b1_1111_1111).try_into().unwrap_or_default();
+pub fn sign_ext_imm9(instruction: u16) -> u16 {
+    let offset = instruction & 0b1_1111_1111;
 
     if offset & 0b1_0000_0000 != 0 {
         offset | !0b1_1111_1111
@@ -246,10 +246,8 @@ pub fn sign_ext_imm9(instruction: u16) -> i16 {
     }
 }
 
-pub fn sign_ext_imm5(instruction: u16) -> i16 {
-    let imm5: i16 = (instruction & 0b0000_0000_0001_1111)
-        .try_into()
-        .unwrap_or_default();
+pub fn sign_ext_imm5(instruction: u16) -> u16 {
+    let imm5 = instruction & 0b0000_0000_0001_1111;
 
     if imm5 & 0b1_0000 != 0 {
         imm5 | !0b0001_1111
@@ -258,10 +256,8 @@ pub fn sign_ext_imm5(instruction: u16) -> i16 {
     }
 }
 
-pub fn sign_ext_imm11(instruction: u16) -> i16 {
-    let offset: i16 = (instruction & 0b111_1111_1111)
-        .try_into()
-        .unwrap_or_default();
+pub fn sign_ext_imm11(instruction: u16) -> u16 {
+    let offset = instruction & 0b111_1111_1111;
 
     if offset & 0b100_0000_0000 != 0 {
         offset | !0b111_1111_1111
