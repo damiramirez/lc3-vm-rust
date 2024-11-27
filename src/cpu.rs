@@ -1,6 +1,6 @@
 use crate::flags::ConditionFlags;
 use crate::memory::Memory;
-use crate::opcode::Opcode;
+use crate::opcode::{Opcode, Trap};
 
 pub enum CPUErrors {
     Register,
@@ -81,7 +81,6 @@ impl CPU {
             Opcode::OP_AND_IMM { dr, sr1, imm5 } => {
                 let src_register = self.get_register_value(sr1)?;
 
-                // TODO: Check this imm5 type
                 let imm5: u16 = imm5;
                 let result = src_register & imm5;
                 self.update_register(dr, result)
@@ -96,7 +95,6 @@ impl CPU {
                     || (z && self.cond == ConditionFlags::ZRO.into())
                     || (p && self.cond == ConditionFlags::POS.into())
                 {
-                    // TODO: Check this imm5 type
                     self.pc = self.pc.wrapping_add(offset);
                 }
             }
@@ -120,18 +118,21 @@ impl CPU {
             }
             Opcode::OP_LDI { dr, offset } => {
                 let address = self.pc.wrapping_add(offset);
-                if let Some(read_value) = self.memory.read(address.into()) {
-                    self.update_register(dr, read_value)?;
-                    self.update_flag(dr)?;
-                }
+                let first_read = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                let read_value = self
+                    .memory
+                    .read(first_read.into())
+                    .ok_or(CPUErrors::Execute)?;
+
+                self.update_register(dr, read_value)?;
+                self.update_flag(dr)?;
             }
             Opcode::OP_LDR { dr, base_r, offset } => {
                 let base_value = self.get_register_value(base_r)?;
                 let address = base_value.wrapping_add(offset);
-                if let Some(read_value) = self.memory.read(address.into()) {
-                    self.update_register(dr, read_value)?;
-                    self.update_flag(dr)?;
-                }
+                let read_value = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                self.update_register(dr, read_value)?;
+                self.update_flag(dr)?;
             }
             Opcode::OP_LEA { dr, offset } => {
                 let result = self.pc.wrapping_add(offset);
@@ -147,9 +148,37 @@ impl CPU {
                 self.pc = self.r7;
             }
             Opcode::OP_RTI => {
-                todo!()
+                println!("unused")
             }
-            Opcode::OP_RES => {}
+            Opcode::OP_RES => {
+                println!("unused");
+            }
+            Opcode::OP_ST { sr, offset } => {
+                let address = self.pc.wrapping_add(offset);
+                let sr_register = self.get_register_value(sr)?;
+
+                self.memory
+                    .write(address, sr_register)
+                    .map_err(|_| CPUErrors::Execute)?;
+            }
+            Opcode::OP_STI { sr, offset } => {
+                let address = self.pc.wrapping_add(offset);
+                let read_address = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+
+                let sr_register = self.get_register_value(sr)?;
+
+                self.memory
+                    .write(read_address, sr_register)
+                    .map_err(|_| CPUErrors::Execute)?;
+            }
+            Opcode::OP_TRAP { trapvec } => match trapvec {
+                Trap::GetC => todo!(),
+                Trap::Out => todo!(),
+                Trap::Puts => todo!(),
+                Trap::In => todo!(),
+                Trap::Putsp => todo!(),
+                Trap::Halt => todo!(),
+            },
             _ => return Err(CPUErrors::Execute),
         };
 
