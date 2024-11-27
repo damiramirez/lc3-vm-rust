@@ -8,7 +8,7 @@ pub enum Opcode {
         p: bool,
         offset: u16,
     },
-    OP_ADD_SR {
+    OP_ADD_REG {
         dr: u16,
         sr1: u16,
         sr2: u16,
@@ -32,7 +32,7 @@ pub enum Opcode {
     OP_JSRR {
         base_r: u16,
     },
-    OP_AND_SR {
+    OP_AND_REG {
         dr: u16,
         sr1: u16,
         sr2: u16,
@@ -107,7 +107,7 @@ impl Opcode {
                 match mode {
                     false => {
                         let sr2 = instruction & 0b0000_0000_0000_0111;
-                        Ok(Opcode::OP_ADD_SR { dr, sr1, sr2 })
+                        Ok(Opcode::OP_ADD_REG { dr, sr1, sr2 })
                     }
                     true => {
                         let imm5 = sign_ext_imm5(instruction & 0b_0000_0000_0001_1111);
@@ -122,7 +122,7 @@ impl Opcode {
                 match mode {
                     false => {
                         let sr2 = instruction & 0b0000_0000_0000_0111;
-                        Ok(Opcode::OP_AND_SR { dr, sr1, sr2 })
+                        Ok(Opcode::OP_AND_REG { dr, sr1, sr2 })
                     }
                     true => {
                         let imm5 = sign_ext_imm5(instruction);
@@ -276,7 +276,7 @@ mod tests {
         let opcode = Opcode::from(instruction)?;
         assert_eq!(
             opcode,
-            Opcode::OP_ADD_SR {
+            Opcode::OP_ADD_REG {
                 dr: 1,
                 sr1: 2,
 
@@ -305,7 +305,7 @@ mod tests {
         let opcode = Opcode::from(instruction)?;
         assert_eq!(
             opcode,
-            Opcode::OP_AND_SR {
+            Opcode::OP_AND_REG {
                 dr: 1,
                 sr1: 2,
                 sr2: 3

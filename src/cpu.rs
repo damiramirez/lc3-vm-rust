@@ -1,6 +1,12 @@
 use crate::flags::ConditionFlags;
 use crate::memory::Memory;
 use crate::opcode::{Opcode, Trap};
+use std::{
+    fmt::Debug,
+    fs::File,
+    io::{self, Read, Write},
+    os::fd::AsFd,
+};
 
 pub enum CPUErrors {
     Register,
@@ -51,7 +57,7 @@ impl CPU {
 
     pub fn execute(&mut self, opcode: Opcode) -> Result<(), CPUErrors> {
         match opcode {
-            Opcode::OP_ADD_SR { dr, sr1, sr2 } => {
+            Opcode::OP_ADD_REG { dr, sr1, sr2 } => {
                 let src_register = self.get_register_value(sr1)?;
                 let rhs_register = self.get_register_value(sr2)?;
                 let sum = src_register.wrapping_add(rhs_register);
@@ -68,7 +74,7 @@ impl CPU {
 
                 self.update_flag(dr)?;
             }
-            Opcode::OP_AND_SR { dr, sr1, sr2 } => {
+            Opcode::OP_AND_REG { dr, sr1, sr2 } => {
                 let src_register = self.get_register_value(sr1)?;
                 let rhs_register = self.get_register_value(sr2)?;
 
@@ -171,14 +177,30 @@ impl CPU {
                     .write(read_address, sr_register)
                     .map_err(|_| CPUErrors::Execute)?;
             }
-            Opcode::OP_TRAP { trapvec } => match trapvec {
-                Trap::GetC => todo!(),
-                Trap::Out => todo!(),
-                Trap::Puts => todo!(),
-                Trap::In => todo!(),
-                Trap::Putsp => todo!(),
-                Trap::Halt => todo!(),
-            },
+            Opcode::OP_TRAP { trapvec } => {
+                match trapvec {
+                    Trap::GetC => todo!(),
+                    Trap::Out => todo!(),
+                    Trap::Puts => {
+                        let mut address = self.r0;
+                        let mut value =
+                            self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+
+                        while value != 0x0000 {
+                            let c: u8 = value.try_into().map_err(|_| CPUErrors::Execute)?;
+                            let c: char = c.into();
+                            print!("{}", c);
+                            address = address.wrapping_add(1);
+                            value = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                        }
+
+                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                    }
+                    Trap::In => todo!(),
+                    Trap::Putsp => todo!(),
+                    Trap::Halt => todo!(),
+                };
+            }
             _ => return Err(CPUErrors::Execute),
         };
 
