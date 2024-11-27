@@ -20,8 +20,8 @@ fn main() {
     };
 
     let mut cpu = CPU::new();
-    let _ = cpu.memory.load_program(&bytes);
-    let _ = cpu.execute_program();
+    cpu.memory.load_program(&bytes);
+    cpu.execute_program();
 }
 
 fn load_obj(filename: &str) -> Result<Vec<u16>, String> {
