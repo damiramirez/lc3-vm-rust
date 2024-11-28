@@ -1,10 +1,8 @@
+use cpu::CPU;
 use std::{
     env,
     fs::{self},
 };
-
-use cpu::CPU;
-
 use termios::*;
 
 mod cpu;
@@ -41,11 +39,11 @@ fn main() {
 
     let mut cpu = CPU::new();
     if let Err(err) = cpu.memory.load_program(&bytes) {
-        eprintln!("Error loading program: {:#?}", err);
+        eprintln!("Error loading program: {}", err);
         return;
     }
     if let Err(err) = cpu.execute_program() {
-        eprintln!("Error running program: {:#?}", err);
+        eprintln!("Error running program: {}", err);
     }
 }
 
