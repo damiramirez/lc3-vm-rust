@@ -1,9 +1,15 @@
-const MEMORY_SIZE: usize = 1 << 16;
+use std::io::Read;
 
+const MEMORY_SIZE: usize = 1 << 16;
+const MR_KBSR: u16 = 0xFE00; /* keyboard status */
+const MR_KBDR: u16 = 0xFE02; /* keyboard data */
+
+#[derive(Debug)]
 pub enum MemoryError {
     OutOfIndex,
     EmptyOrigin,
     Overflow,
+    File,
 }
 
 pub struct Memory {
@@ -26,7 +32,11 @@ impl Memory {
         }
     }
 
-    pub fn read(&self, address: usize) -> Option<u16> {
+    pub fn read(&mut self, address: usize) -> Option<u16> {
+        let keyboard_add: usize = MR_KBSR.into();
+        if address == keyboard_add {
+            self.handle_keyboard().ok()?;
+        }
         self.cells.get(address).copied()
     }
 
@@ -41,6 +51,22 @@ impl Memory {
         for (i, data) in data_no_origin.iter().enumerate() {
             let position = origin.checked_add(i).ok_or(MemoryError::Overflow)?;
             self.write(position.try_into().unwrap_or_default(), *data)?;
+        }
+
+        Ok(())
+    }
+
+    fn handle_keyboard(&mut self) -> Result<(), MemoryError> {
+        let mut buffer = [0; 1];
+        std::io::stdin()
+            .read_exact(&mut buffer)
+            .map_err(|_| MemoryError::File)?;
+
+        if buffer[0] != 0 {
+            self.write(MR_KBSR, 1 << 15)?;
+            self.write(MR_KBDR, u16::from(*buffer.first().unwrap_or(&0)))?;
+        } else {
+            self.write(MR_KBSR, 0)?;
         }
 
         Ok(())

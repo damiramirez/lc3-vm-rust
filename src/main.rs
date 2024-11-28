@@ -1,8 +1,5 @@
-use std::{env, fs};
-
 use cpu::CPU;
-use memory::Memory;
-
+use std::{env, fs};
 mod cpu;
 mod flags;
 mod memory;
@@ -21,14 +18,12 @@ fn main() {
     };
 
     let mut cpu = CPU::new();
-    let mut memory = Memory::new();
-    let _ = memory.load_program(&bytes);
-
-    for (i, value) in memory.cells.iter().enumerate() {
-        if *value != 0 {
-            print!("Address {} => ", i);
-            cpu.fetch_instruction();
-        }
+    if cpu.memory.load_program(&bytes).is_err() {
+        eprintln!("Error loading program");
+        return;
+    }
+    if cpu.execute_program().is_err() {
+        eprintln!("Error running program");
     }
 }
 
