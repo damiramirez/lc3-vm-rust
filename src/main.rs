@@ -1,11 +1,33 @@
+use std::{
+    env,
+    fs::{self},
+};
+
 use cpu::CPU;
-use std::{env, fs};
+
+use termios::*;
+
 mod cpu;
 mod flags;
 mod memory;
 mod opcode;
 
 fn main() {
+    // Configure Termios
+    let stdin = 0;
+    let mut termios = match Termios::from_fd(stdin) {
+        Ok(termios) => termios,
+        Err(e) => {
+            eprintln!("Failed to initialize terminal: {}", e);
+            return;
+        }
+    };
+    termios.c_lflag &= !(ICANON | ECHO);
+    if let Err(e) = tcsetattr(stdin, TCSANOW, &termios) {
+        eprintln!("Failed to initialize terminal: {}", e);
+        return;
+    }
+
     let args: Vec<String> = env::args().collect();
     let filename = match args.get(1) {
         Some(file) => file,
