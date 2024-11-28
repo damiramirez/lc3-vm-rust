@@ -18,8 +18,13 @@ fn main() {
     };
 
     let mut cpu = CPU::new();
-    cpu.memory.load_program(&bytes);
-    cpu.execute_program();
+    if cpu.memory.load_program(&bytes).is_err() {
+        eprintln!("Error loading program");
+        return;
+    }
+    if cpu.execute_program().is_err() {
+        eprintln!("Error running program");
+    }
 }
 
 fn load_obj(filename: &str) -> Result<Vec<u16>, String> {

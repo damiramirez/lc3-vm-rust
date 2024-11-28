@@ -1,5 +1,4 @@
-#![allow(non_camel_case_types)]
-#[repr(u16)]
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub enum Opcode {
     OP_BR {
@@ -109,7 +108,7 @@ impl Opcode {
                         Ok(Opcode::OP_ADD_REG { dr, sr1, sr2 })
                     }
                     true => {
-                        let imm5 = sign_ext_imm5(instruction & 0b_0000_0000_0001_1111);
+                        let imm5 = sign_ext_imm5(instruction);
                         Ok(Opcode::OP_ADD_IMM { dr, sr1, imm5 })
                     }
                 }
@@ -147,7 +146,7 @@ impl Opcode {
                 let mode = (instruction >> 11) & 0b0000_0000_0000_0001 == 1;
                 match mode {
                     false => {
-                        let base_r = (instruction >> 6) & 0b0000_0000_0011_1111;
+                        let base_r = (instruction >> 6) & 0b0000_0000_0000_0111;
                         Ok(Opcode::OP_JSRR { base_r })
                     }
                     true => {

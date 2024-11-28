@@ -12,7 +12,7 @@ pub enum CPUErrors {
     Decode,
 }
 
-#[warn(clippy::upper_case_acronyms)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct CPU {
     pub r0: u16,
     pub r1: u16,
@@ -51,7 +51,7 @@ impl CPU {
             let instruction = self.fetch_instruction().ok_or(CPUErrors::Decode)?;
             self.pc = self.pc.wrapping_add(1);
             let opcode = Opcode::from(instruction).map_err(|_| CPUErrors::Execute)?;
-            self.execute(opcode);
+            self.execute(opcode)?;
         }
 
         Ok(())
@@ -184,6 +184,14 @@ impl CPU {
                     .write(read_address, sr_register)
                     .map_err(|_| CPUErrors::Execute)?;
             }
+            Opcode::OP_STR { sr, base_r, offset } => {
+                let base_value = self.get_register_value(base_r)?;
+                let address = base_value.wrapping_add(offset);
+                let sr_value = self.get_register_value(sr)?;
+                self.memory
+                    .write(address, sr_value)
+                    .map_err(|_| CPUErrors::Execute)?;
+            }
             Opcode::OP_TRAP { trapvec } => {
                 self.r7 = self.pc;
                 match trapvec {
@@ -195,7 +203,7 @@ impl CPU {
                         let read_char = buffer.first().ok_or(CPUErrors::Execute)?;
 
                         self.r0 = (*read_char).into();
-                        self.update_flag(self.r0)?;
+                        self.update_flag(0)?;
                     }
                     Trap::Out => {
                         let r0_value: u8 = self.r0.try_into().map_err(|_| CPUErrors::Execute)?;
@@ -267,7 +275,6 @@ impl CPU {
                     }
                 };
             }
-            _ => return Err(CPUErrors::Execute),
         };
 
         Ok(())
@@ -313,7 +320,7 @@ impl CPU {
         Ok(())
     }
 
-    pub fn update_flag(&mut self, register: u16) -> Result<bool, CPUErrors> {
+    pub fn update_flag(&mut self, register: u16) -> Result<(), CPUErrors> {
         let register_value = self.get_register(register).map_err(|_| CPUErrors::Flag)?;
 
         if *register_value == 0 {
@@ -324,7 +331,7 @@ impl CPU {
             self.cond = ConditionFlags::POS.into();
         }
 
-        Ok(true)
+        Ok(())
     }
 }
 

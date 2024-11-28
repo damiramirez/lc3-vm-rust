@@ -1,14 +1,7 @@
-use std::fs::File;
 use std::io::Read;
-use std::os::fd::AsFd;
-
-use nix::sys::{
-    select,
-    time::{TimeVal, TimeValLike},
-};
 
 const MEMORY_SIZE: usize = 1 << 16;
-const MR_KBSR: u16 = 0xFE0; /* keyboard status */
+const MR_KBSR: u16 = 0xFE00; /* keyboard status */
 const MR_KBDR: u16 = 0xFE02; /* keyboard data */
 
 #[derive(Debug)]
@@ -42,7 +35,7 @@ impl Memory {
     pub fn read(&mut self, address: usize) -> Option<u16> {
         let keyboard_add: usize = MR_KBSR.into();
         if address == keyboard_add {
-            self.handle_keyboard();
+            self.handle_keyboard().ok()?;
         }
         self.cells.get(address).copied()
     }
