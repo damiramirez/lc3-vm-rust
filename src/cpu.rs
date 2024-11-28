@@ -1,14 +1,16 @@
 use crate::flags::ConditionFlags;
 use crate::memory::Memory;
 use crate::opcode::{Opcode, Trap};
-
 use std::io::{self, Read, Write};
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum CPUErrors {
+    #[error("Error obtaining the register value")]
     Register,
-    Flag,
+    #[error("Fail executing instruction")]
     Execute,
+    #[error("Fail decoding instruction")]
     Decode,
 }
 
@@ -50,7 +52,7 @@ impl CPU {
         while self.running {
             let instruction = self.fetch_instruction().ok_or(CPUErrors::Decode)?;
             self.pc = self.pc.wrapping_add(1);
-            let opcode = Opcode::from(instruction).map_err(|_| CPUErrors::Execute)?;
+            let opcode = Opcode::from(instruction).map_err(|_| CPUErrors::Decode)?;
             self.execute(opcode)?;
         }
 
@@ -270,7 +272,6 @@ impl CPU {
                         io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
                     }
                     Trap::Halt => {
-                        // io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
                         self.running = false;
                     }
                 };
@@ -321,7 +322,9 @@ impl CPU {
     }
 
     pub fn update_flag(&mut self, register: u16) -> Result<(), CPUErrors> {
-        let register_value = self.get_register(register).map_err(|_| CPUErrors::Flag)?;
+        let register_value = self
+            .get_register(register)
+            .map_err(|_| CPUErrors::Register)?;
 
         if *register_value == 0 {
             self.cond = ConditionFlags::ZRO.into();

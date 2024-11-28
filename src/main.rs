@@ -1,11 +1,31 @@
 use cpu::CPU;
-use std::{env, fs};
+use std::{
+    env,
+    fs::{self},
+};
+use termios::*;
+
 mod cpu;
 mod flags;
 mod memory;
 mod opcode;
 
 fn main() {
+    // Configure Termios
+    let stdin = 0;
+    let mut termios = match Termios::from_fd(stdin) {
+        Ok(termios) => termios,
+        Err(e) => {
+            eprintln!("Failed to initialize terminal: {}", e);
+            return;
+        }
+    };
+    termios.c_lflag &= !(ICANON | ECHO);
+    if let Err(e) = tcsetattr(stdin, TCSANOW, &termios) {
+        eprintln!("Failed to initialize terminal: {}", e);
+        return;
+    }
+
     let args: Vec<String> = env::args().collect();
     let filename = match args.get(1) {
         Some(file) => file,
@@ -18,12 +38,12 @@ fn main() {
     };
 
     let mut cpu = CPU::new();
-    if cpu.memory.load_program(&bytes).is_err() {
-        eprintln!("Error loading program");
+    if let Err(err) = cpu.memory.load_program(&bytes) {
+        eprintln!("Error loading program: {}", err);
         return;
     }
-    if cpu.execute_program().is_err() {
-        eprintln!("Error running program");
+    if let Err(err) = cpu.execute_program() {
+        eprintln!("Error running program: {}", err);
     }
 }
 

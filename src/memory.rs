@@ -1,15 +1,20 @@
 use std::io::Read;
+use thiserror::Error;
 
 const MEMORY_SIZE: usize = 1 << 16;
 const MR_KBSR: u16 = 0xFE00; /* keyboard status */
 const MR_KBDR: u16 = 0xFE02; /* keyboard data */
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum MemoryError {
-    OutOfIndex,
+    #[error("Failed to write in memory")]
+    Write,
+    #[error("Origin is missing in the file")]
     EmptyOrigin,
-    Overflow,
-    File,
+    #[error("Failed to load program")]
+    LoadProgram,
+    #[error("Failed to read the keyboard")]
+    Keyboard,
 }
 
 pub struct Memory {
@@ -28,7 +33,7 @@ impl Memory {
             *cell = value;
             Ok(())
         } else {
-            Err(MemoryError::OutOfIndex)
+            Err(MemoryError::Write)
         }
     }
 
@@ -46,10 +51,10 @@ impl Memory {
             None => return Err(MemoryError::EmptyOrigin),
         };
 
-        let data_no_origin = data.get(1..data.len()).ok_or(MemoryError::Overflow)?;
+        let data_no_origin = data.get(1..data.len()).ok_or(MemoryError::LoadProgram)?;
 
         for (i, data) in data_no_origin.iter().enumerate() {
-            let position = origin.checked_add(i).ok_or(MemoryError::Overflow)?;
+            let position = origin.checked_add(i).ok_or(MemoryError::LoadProgram)?;
             self.write(position.try_into().unwrap_or_default(), *data)?;
         }
 
@@ -60,7 +65,7 @@ impl Memory {
         let mut buffer = [0; 1];
         std::io::stdin()
             .read_exact(&mut buffer)
-            .map_err(|_| MemoryError::File)?;
+            .map_err(|_| MemoryError::Keyboard)?;
 
         if buffer[0] != 0 {
             self.write(MR_KBSR, 1 << 15)?;
