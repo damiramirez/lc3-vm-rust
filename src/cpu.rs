@@ -270,7 +270,6 @@ impl CPU {
                         io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
                     }
                     Trap::Halt => {
-                        // io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
                         self.running = false;
                     }
                 };

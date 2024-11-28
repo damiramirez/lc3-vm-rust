@@ -40,12 +40,12 @@ fn main() {
     };
 
     let mut cpu = CPU::new();
-    if cpu.memory.load_program(&bytes).is_err() {
-        eprintln!("Error loading program");
+    if let Err(err) = cpu.memory.load_program(&bytes) {
+        eprintln!("Error loading program: {:#?}", err);
         return;
     }
-    if cpu.execute_program().is_err() {
-        eprintln!("Error running program");
+    if let Err(err) = cpu.execute_program() {
+        eprintln!("Error running program: {:#?}", err);
     }
 }
 
