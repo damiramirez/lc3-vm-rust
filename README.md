@@ -4,21 +4,23 @@ Basic implementation of the [LC3](https://www.jmeiners.com/lc3-vm/) virtual mach
 
 It supports the following instructions:
 
-- BR
-- ADD
-- LD
-- ST
-- JSR
-- JSRR
-- AND
-- LDR
-- STR
-- NOT
-- LDI
-- STI
-- JMP
-- LEA
-- TRAP
+| Instruction | Supported |
+| :---------: | :-------: |
+|     BR      |    ✅     |
+|     ADD     |    ✅     |
+|     LD      |    ✅     |
+|     ST      |    ✅     |
+|     JSR     |    ✅     |
+|    JSRR     |    ✅     |
+|     AND     |    ✅     |
+|     LDR     |    ✅     |
+|     STR     |    ✅     |
+|     STI     |    ✅     |
+|     NOT     |    ✅     |
+|     LDI     |    ✅     |
+|     JMP     |    ✅     |
+|     LEA     |    ✅     |
+|    TRAP     |    ✅     |
 
 ## Usage
 
