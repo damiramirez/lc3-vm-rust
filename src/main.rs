@@ -13,23 +13,24 @@ mod opcode;
 fn main() {
     // Configure Termios
     let stdin = 0;
-    let mut termios = match Termios::from_fd(stdin) {
-        Ok(termios) => termios,
-        Err(e) => {
-            eprintln!("Failed to initialize terminal: {}", e);
-            return;
-        }
+    let Ok(mut termios) = Termios::from_fd(stdin) else {
+        eprintln!("Failed to initialize terminal");
+        return;
     };
+
     termios.c_lflag &= !(ICANON | ECHO);
-    if let Err(e) = tcsetattr(stdin, TCSANOW, &termios) {
-        eprintln!("Failed to initialize terminal: {}", e);
+
+    if let Err(e) = tcsetattr(0, TCSANOW, &termios)
+        .inspect_err(|e| eprintln!("Failed to initialize terminal: {}", e))
+    {
+        println!("{}", e);
         return;
     }
 
     let args: Vec<String> = env::args().collect();
-    let filename = match args.get(1) {
-        Some(file) => file,
-        None => return,
+    let Some(filename) = args.get(1) else {
+        eprintln!("Failed to get the filename from args");
+        return;
     };
 
     let bytes = match load_obj(filename) {
@@ -41,7 +42,7 @@ fn main() {
     if let Err(err) = cpu.memory.load_program(&bytes) {
         eprintln!("Error loading program: {}", err);
         return;
-    }
+    };
     if let Err(err) = cpu.execute_program() {
         eprintln!("Error running program: {}", err);
     }

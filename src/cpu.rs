@@ -5,13 +5,13 @@ use std::io::{self, Read, Write};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum CPUErrors {
-    #[error("Error obtaining the register value")]
-    Register,
-    #[error("Fail executing instruction")]
-    Execute,
+pub enum CPUError {
+    #[error("Error obtaining the register value: {0}")]
+    Register(String),
+    #[error("Fail executing instruction: {0}")]
+    Execute(String),
     #[error("Fail decoding instruction")]
-    Decode,
+    Decode(String),
 }
 
 #[allow(clippy::upper_case_acronyms)]
@@ -48,11 +48,14 @@ impl CPU {
         }
     }
 
-    pub fn execute_program(&mut self) -> Result<(), CPUErrors> {
+    pub fn execute_program(&mut self) -> Result<(), CPUError> {
         while self.running {
-            let instruction = self.fetch_instruction().ok_or(CPUErrors::Decode)?;
+            let instruction = self
+                .fetch_instruction()
+                .ok_or(CPUError::Decode("Fetching instruction".to_string()))?;
             self.pc = self.pc.wrapping_add(1);
-            let opcode = Opcode::from(instruction).map_err(|_| CPUErrors::Decode)?;
+            let opcode =
+                Opcode::from(instruction).map_err(|err| CPUError::Decode(format!("{:?}", err)))?;
             self.execute(opcode)?;
         }
 
@@ -60,18 +63,17 @@ impl CPU {
     }
 
     pub fn fetch_instruction(&mut self) -> Option<u16> {
-        let instruction = self.memory.read(self.pc.into())?;
-        Some(instruction)
+        self.memory.read(self.pc.into())
     }
 
-    pub fn execute(&mut self, opcode: Opcode) -> Result<(), CPUErrors> {
+    pub fn execute(&mut self, opcode: Opcode) -> Result<(), CPUError> {
         match opcode {
             Opcode::OP_ADD_REG { dr, sr1, sr2 } => {
                 let src_register = self.get_register_value(sr1)?;
                 let rhs_register = self.get_register_value(sr2)?;
                 let sum = src_register.wrapping_add(rhs_register);
                 self.update_register(dr, sum)
-                    .map_err(|_| CPUErrors::Execute)?;
+                    .map_err(|err| CPUError::Execute(format!("ADD: {}", err)))?;
 
                 self.update_flag(dr)?;
             }
@@ -79,29 +81,37 @@ impl CPU {
                 let src_register = self.get_register_value(sr1)?;
                 let sum = src_register.wrapping_add(imm5);
                 self.update_register(dr, sum)
-                    .map_err(|_| CPUErrors::Execute)?;
+                    .map_err(|err| CPUError::Execute(format!("ADD: {}", err)))?;
 
                 self.update_flag(dr)?;
             }
             Opcode::OP_AND_REG { dr, sr1, sr2 } => {
-                let src_register = self.get_register_value(sr1)?;
-                let rhs_register = self.get_register_value(sr2)?;
+                let src_register = self
+                    .get_register_value(sr1)
+                    .map_err(|err| CPUError::Execute(format!("AND: {}", err)))?;
+                let rhs_register = self
+                    .get_register_value(sr2)
+                    .map_err(|err| CPUError::Execute(format!("AND: {}", err)))?;
 
                 let result = src_register & rhs_register;
                 self.update_register(dr, result)
-                    .map_err(|_| CPUErrors::Execute)?;
+                    .map_err(|err| CPUError::Execute(format!("AND: {}", err)))?;
 
-                self.update_flag(dr)?;
+                self.update_flag(dr)
+                    .map_err(|err| CPUError::Execute(format!("AND: {}", err)))?;
             }
             Opcode::OP_AND_IMM { dr, sr1, imm5 } => {
-                let src_register = self.get_register_value(sr1)?;
+                let src_register = self
+                    .get_register_value(sr1)
+                    .map_err(|err| CPUError::Execute(format!("AND: {}", err)))?;
 
                 let imm5: u16 = imm5;
                 let result = src_register & imm5;
                 self.update_register(dr, result)
-                    .map_err(|_| CPUErrors::Execute)?;
+                    .map_err(|err| CPUError::Execute(format!("AND: {}", err)))?;
 
-                self.update_flag(dr)?;
+                self.update_flag(dr)
+                    .map_err(|err| CPUError::Execute(format!("AND: {}", err)))?;
             }
             Opcode::OP_BR { n, z, p, offset } => {
                 // If any of the condition codes tested is set, the program branches to the location
@@ -114,7 +124,9 @@ impl CPU {
                 }
             }
             Opcode::OP_JMP { base_r } => {
-                self.pc = self.get_register_value(base_r)?;
+                self.pc = self
+                    .get_register_value(base_r)
+                    .map_err(|err| CPUError::Execute(format!("JMP: {}", err)))?;
             }
             Opcode::OP_JSR { offset } => {
                 self.r7 = self.pc;
@@ -122,30 +134,42 @@ impl CPU {
             }
             Opcode::OP_JSRR { base_r } => {
                 self.r7 = self.pc;
-                self.pc = self.get_register_value(base_r)?;
+                self.pc = self
+                    .get_register_value(base_r)
+                    .map_err(|err| CPUError::Execute(format!("JSRR: {}", err)))?;
             }
             Opcode::OP_LD { dr, offset } => {
                 let address = self.pc.wrapping_add(offset);
                 if let Some(read_value) = self.memory.read(address.into()) {
-                    self.update_register(dr, read_value)?;
-                    self.update_flag(dr)?;
+                    self.update_register(dr, read_value)
+                        .map_err(|err| CPUError::Execute(format!("LD: {}", err)))?;
+                    self.update_flag(dr)
+                        .map_err(|err| CPUError::Execute(format!("LD: {}", err)))?;
                 }
             }
             Opcode::OP_LDI { dr, offset } => {
                 let address = self.pc.wrapping_add(offset);
-                let first_read = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                let first_read = self
+                    .memory
+                    .read(address.into())
+                    .ok_or(CPUError::Execute("LDI".to_string()))?;
                 let read_value = self
                     .memory
                     .read(first_read.into())
-                    .ok_or(CPUErrors::Execute)?;
+                    .ok_or(CPUError::Execute("LDI".to_string()))?;
 
-                self.update_register(dr, read_value)?;
-                self.update_flag(dr)?;
+                self.update_register(dr, read_value)
+                    .map_err(|err| CPUError::Execute(format!("LDI: {}", err)))?;
+                self.update_flag(dr)
+                    .map_err(|err| CPUError::Execute(format!("LDI: {}", err)))?;
             }
             Opcode::OP_LDR { dr, base_r, offset } => {
                 let base_value = self.get_register_value(base_r)?;
                 let address = base_value.wrapping_add(offset);
-                let read_value = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                let read_value = self
+                    .memory
+                    .read(address.into())
+                    .ok_or(CPUError::Execute("LDR".to_string()))?;
                 self.update_register(dr, read_value)?;
                 self.update_flag(dr)?;
             }
@@ -174,17 +198,20 @@ impl CPU {
 
                 self.memory
                     .write(address, sr_register)
-                    .map_err(|_| CPUErrors::Execute)?;
+                    .map_err(|err| CPUError::Execute(format!("ST: {}", err)))?;
             }
             Opcode::OP_STI { sr, offset } => {
                 let address = self.pc.wrapping_add(offset);
-                let read_address = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                let read_address = self
+                    .memory
+                    .read(address.into())
+                    .ok_or(CPUError::Execute("STI".to_string()))?;
 
                 let sr_register = self.get_register_value(sr)?;
 
                 self.memory
                     .write(read_address, sr_register)
-                    .map_err(|_| CPUErrors::Execute)?;
+                    .map_err(|err| CPUError::Execute(format!("STI: {}", err)))?;
             }
             Opcode::OP_STR { sr, base_r, offset } => {
                 let base_value = self.get_register_value(base_r)?;
@@ -192,7 +219,7 @@ impl CPU {
                 let sr_value = self.get_register_value(sr)?;
                 self.memory
                     .write(address, sr_value)
-                    .map_err(|_| CPUErrors::Execute)?;
+                    .map_err(|err| CPUError::Execute(format!("STR: {}", err)))?;
             }
             Opcode::OP_TRAP { trapvec } => {
                 self.r7 = self.pc;
@@ -201,75 +228,105 @@ impl CPU {
                         let mut buffer: [u8; 1] = [0; 1];
                         io::stdin()
                             .read_exact(&mut buffer)
-                            .map_err(|_| CPUErrors::Execute)?;
-                        let read_char = buffer.first().ok_or(CPUErrors::Execute)?;
+                            .map_err(|err| CPUError::Execute(format!("GetC: {}", err)))?;
+                        let read_char = buffer
+                            .first()
+                            .ok_or(CPUError::Execute("GetC".to_string()))?;
 
                         self.r0 = (*read_char).into();
                         self.update_flag(0)?;
                     }
                     Trap::Out => {
-                        let r0_value: u8 = self.r0.try_into().map_err(|_| CPUErrors::Execute)?;
+                        let r0_value: u8 = self
+                            .r0
+                            .try_into()
+                            .map_err(|err| CPUError::Execute(format!("Out: {}", err)))?;
                         let char: char = r0_value.into();
                         print!("{}", char);
-                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                        io::stdout()
+                            .flush()
+                            .map_err(|err| CPUError::Execute(format!("Out: {err}")))?;
                     }
                     Trap::Puts => {
                         let mut address = self.r0;
-                        let mut value =
-                            self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                        let mut value = self
+                            .memory
+                            .read(address.into())
+                            .ok_or(CPUError::Execute("Puts".to_string()))?;
 
                         while value != 0x0000 {
-                            let c: u8 = value.try_into().map_err(|_| CPUErrors::Execute)?;
+                            let c: u8 = value
+                                .try_into()
+                                .map_err(|err| CPUError::Execute(format!("Out: {err}")))?;
                             let c: char = c.into();
                             print!("{}", c);
                             address = address.wrapping_add(1);
-                            value = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                            value = self
+                                .memory
+                                .read(address.into())
+                                .ok_or(CPUError::Execute("Puts".to_string()))?;
                         }
 
-                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                        io::stdout()
+                            .flush()
+                            .map_err(|err| CPUError::Execute(format!("Out: {err}")))?;
                     }
                     Trap::In => {
                         print!("Enter a character: ");
-                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                        io::stdout()
+                            .flush()
+                            .map_err(|err| CPUError::Execute(format!("In: {err}")))?;
 
                         let mut buffer: [u8; 1] = [0; 1];
                         io::stdin()
                             .read_exact(&mut buffer)
-                            .map_err(|_| CPUErrors::Execute)?;
-                        let read_char = buffer.first().ok_or(CPUErrors::Execute)?;
+                            .map_err(|err| CPUError::Execute(format!("In: {err}")))?;
+                        let read_char =
+                            buffer.first().ok_or(CPUError::Execute("In".to_string()))?;
                         let char: char = (*read_char).into();
                         print!("{}", char);
 
                         self.update_register(0, (*read_char).into())?;
                         self.update_flag(0)?;
-                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                        io::stdout()
+                            .flush()
+                            .map_err(|err| CPUError::Execute(format!("In: {err}")))?;
                     }
                     Trap::Putsp => {
                         let mut address = self.r0;
-                        let mut value =
-                            self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                        let mut value = self
+                            .memory
+                            .read(address.into())
+                            .ok_or(CPUError::Execute("Putsp".to_string()))?;
 
                         while value != 0x0000 {
                             let first_char = (value >> 8) & 0b0000_0000_1111_1111;
                             let second_char = value & 0b0000_0000_1111_1111;
 
-                            let first_c: u8 =
-                                first_char.try_into().map_err(|_| CPUErrors::Execute)?;
+                            let first_c: u8 = first_char
+                                .try_into()
+                                .map_err(|err| CPUError::Execute(format!("Putsp: {err}")))?;
                             let first_c: char = first_c.into();
                             print!("{}", first_c);
 
-                            let second_c: u8 =
-                                second_char.try_into().map_err(|_| CPUErrors::Execute)?;
+                            let second_c: u8 = second_char
+                                .try_into()
+                                .map_err(|err| CPUError::Execute(format!("Putsp: {err}")))?;
                             if second_c != 0x00 {
                                 let second_c: char = second_c.into();
                                 print!("{}", second_c);
                             }
 
                             address = address.wrapping_add(1);
-                            value = self.memory.read(address.into()).ok_or(CPUErrors::Execute)?;
+                            value = self
+                                .memory
+                                .read(address.into())
+                                .ok_or(CPUError::Execute("Putsp".to_string()))?;
                         }
 
-                        io::stdout().flush().map_err(|_| CPUErrors::Execute)?;
+                        io::stdout()
+                            .flush()
+                            .map_err(|err| CPUError::Execute(format!("Putsp: {err}")))?;
                     }
                     Trap::Halt => {
                         self.running = false;
@@ -281,7 +338,7 @@ impl CPU {
         Ok(())
     }
 
-    pub fn get_register(&mut self, index: u16) -> Result<&mut u16, CPUErrors> {
+    pub fn get_register(&mut self, index: u16) -> Result<&mut u16, CPUError> {
         let register_value = match index {
             0 => &mut self.r0,
             1 => &mut self.r1,
@@ -292,13 +349,18 @@ impl CPU {
             6 => &mut self.r6,
             7 => &mut self.r7,
             8 => &mut self.pc,
-            _ => return Err(CPUErrors::Register),
+            _ => {
+                return Err(CPUError::Register(format!(
+                    "Invalid register index: {}",
+                    index
+                )))
+            }
         };
 
         Ok(register_value)
     }
 
-    pub fn get_register_value(&self, index: u16) -> Result<u16, CPUErrors> {
+    pub fn get_register_value(&self, index: u16) -> Result<u16, CPUError> {
         let register_value = match index {
             0 => self.r0,
             1 => self.r1,
@@ -309,22 +371,25 @@ impl CPU {
             6 => self.r6,
             7 => self.r7,
             8 => self.pc,
-            _ => return Err(CPUErrors::Register),
+            _ => {
+                return Err(CPUError::Register(format!(
+                    "Invalid register index: {}",
+                    index
+                )))
+            }
         };
 
         Ok(register_value)
     }
 
-    pub fn update_register(&mut self, index: u16, value: u16) -> Result<(), CPUErrors> {
+    pub fn update_register(&mut self, index: u16, value: u16) -> Result<(), CPUError> {
         let register = self.get_register(index)?;
         *register = value;
         Ok(())
     }
 
-    pub fn update_flag(&mut self, register: u16) -> Result<(), CPUErrors> {
-        let register_value = self
-            .get_register(register)
-            .map_err(|_| CPUErrors::Register)?;
+    pub fn update_flag(&mut self, register: u16) -> Result<(), CPUError> {
+        let register_value = self.get_register(register)?;
 
         if *register_value == 0 {
             self.cond = ConditionFlags::ZRO.into();

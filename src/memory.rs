@@ -7,8 +7,8 @@ const MR_KBDR: u16 = 0xFE02; /* keyboard data */
 
 #[derive(Error, Debug)]
 pub enum MemoryError {
-    #[error("Failed to write in memory")]
-    Write,
+    #[error("Failed to write in memory: {0}")]
+    Write(String),
     #[error("Origin is missing in the file")]
     EmptyOrigin,
     #[error("Failed to load program")]
@@ -33,7 +33,7 @@ impl Memory {
             *cell = value;
             Ok(())
         } else {
-            Err(MemoryError::Write)
+            Err(MemoryError::Write(format!("Position: {}", address)))
         }
     }
 
