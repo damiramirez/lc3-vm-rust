@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+termios = "0.3.3"
+thiserror = "2.0.3"
 
 [lints.rust]
 unsafe_code = "forbid"
